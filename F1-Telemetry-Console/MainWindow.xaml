@@ -256,13 +256,36 @@
                             
                             <!-- Mini track map (simplified) -->
                             <Separator Margin="0,10" Background="{StaticResource F1SilverBrush}"/>
-                            <TextBlock Text="MINI MAP" Style="{StaticResource HeaderTextStyle}" FontSize="12"/>
-                            <Canvas Name="MiniTrackCanvas" Height="80" Background="Black" Margin="0,5">
-                                <!-- Simple track outline - will be updated based on track -->
-                                <Path Name="TrackOutline" Stroke="{StaticResource F1SilverBrush}" StrokeThickness="2" Fill="Transparent"/>
-                                <!-- Car position dot -->
-                                <Ellipse Name="CarDot" Fill="Yellow" Width="6" Height="6" Canvas.Left="10" Canvas.Top="10"/>
-                            </Canvas>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="MINI MAP" Style="{StaticResource HeaderTextStyle}" FontSize="12"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <CheckBox Name="ShowHistoryCheckBox" Content="Trail" Foreground="{StaticResource F1SilverBrush}" 
+                                              IsChecked="True" Checked="ShowHistoryCheckBox_CheckedChanged" 
+                                              Unchecked="ShowHistoryCheckBox_CheckedChanged" FontSize="10" Margin="0,0,5,0"/>
+                                    <Button Name="ClearHistoryButton" Content="Clear" Click="ClearHistoryButton_Click" 
+                                            FontSize="10" Padding="3,1" Background="{StaticResource F1DarkBrush}" 
+                                            Foreground="{StaticResource F1SilverBrush}" BorderThickness="1" 
+                                            BorderBrush="{StaticResource F1SilverBrush}" Margin="0,0,5,0"/>
+                                    <Button Name="ResetViewButton" Content="Reset" Click="ResetViewButton_Click" 
+                                            FontSize="10" Padding="3,1" Background="{StaticResource F1DarkBrush}" 
+                                            Foreground="{StaticResource F1SilverBrush}" BorderThickness="1" 
+                                            BorderBrush="{StaticResource F1SilverBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Border Height="240" Background="Black" Margin="0,5" ClipToBounds="True">
+                                <Canvas Name="MiniTrackCanvas" Height="240" Background="Transparent">
+                                    <!-- Car position dot -->
+                                    <Ellipse Name="CarDot" Fill="Yellow" Width="8" Height="8" Canvas.Left="10" Canvas.Top="10"/>
+                                </Canvas>
+                            </Border>
+                            <TextBlock Text="Mouse wheel: zoom • Left click + drag: pan • Trail color changes each lap" 
+                                       Style="{StaticResource DataTextStyle}" FontSize="9" 
+                                       HorizontalAlignment="Center" Margin="0,2,0,0" 
+                                       Foreground="{StaticResource F1SilverBrush}" Opacity="0.7"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -386,44 +409,62 @@
                     </Border>
                 </Grid>
                 
-                <!-- Fourth Row - Session Info -->
-                <Border Grid.Row="3" Style="{StaticResource GaugeStyle}">
-                    <StackPanel>
-                        <TextBlock Text="SESSION INFO" Style="{StaticResource HeaderTextStyle}"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Track:" Style="{StaticResource DataTextStyle}"/>
-                                <TextBlock Name="TrackNameText" Text="Silverstone" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
-                                <TextBlock Name="TrackLengthText" Text="5.891 km" Style="{StaticResource DataTextStyle}"/>
-                            </StackPanel>
-                            
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Weather:" Style="{StaticResource DataTextStyle}"/>
-                                <TextBlock Name="WeatherText" Text="Clear" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
-                                <TextBlock Name="TemperatureText" Text="Air: 22°C Track: 35°C" Style="{StaticResource DataTextStyle}"/>
-                            </StackPanel>
-                            
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Session:" Style="{StaticResource DataTextStyle}"/>
-                                <TextBlock Name="SessionTypeText" Text="Practice 1" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
-                                <TextBlock Name="SessionTimeLeftText" Text="45:23 remaining" Style="{StaticResource DataTextStyle}"/>
-                            </StackPanel>
-                            
-                            <StackPanel Grid.Column="3">
-                                <TextBlock Text="Safety Car:" Style="{StaticResource DataTextStyle}"/>
-                                <TextBlock Name="SafetyCarText" Text="No Safety Car" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
-                                <TextBlock Name="FlagsText" Text="Green Flag" Style="{StaticResource DataTextStyle}"/>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                <!-- Fourth Row - Session Info and Lap Times -->
+                <Grid Grid.Row="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Session Info -->
+                    <Border Grid.Column="0" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="SESSION INFO" Style="{StaticResource HeaderTextStyle}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Track:" Style="{StaticResource DataTextStyle}"/>
+                                    <TextBlock Name="TrackNameText" Text="Silverstone" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                    <TextBlock Name="TrackLengthText" Text="5.891 km" Style="{StaticResource DataTextStyle}"/>
+                                    <TextBlock Text="Weather:" Style="{StaticResource DataTextStyle}" Margin="0,5,0,0"/>
+                                    <TextBlock Name="WeatherText" Text="Clear" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Session:" Style="{StaticResource DataTextStyle}"/>
+                                    <TextBlock Name="SessionTypeText" Text="Practice 1" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                    <TextBlock Name="SessionTimeLeftText" Text="45:23 remaining" Style="{StaticResource DataTextStyle}"/>
+                                    <TextBlock Text="Temperature:" Style="{StaticResource DataTextStyle}" Margin="0,5,0,0"/>
+                                    <TextBlock Name="TemperatureText" Text="Air: 22°C Track: 35°C" Style="{StaticResource DataTextStyle}"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Safety Car:" Style="{StaticResource DataTextStyle}"/>
+                                    <TextBlock Name="SafetyCarText" Text="No Safety Car" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                    <TextBlock Name="FlagsText" Text="Green Flag" Style="{StaticResource DataTextStyle}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Lap Times -->
+                    <Border Grid.Column="1" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="LAP TIMES" Style="{StaticResource HeaderTextStyle}"/>
+                            <ScrollViewer Name="LapTimesScrollViewer" Height="120" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Name="LapTimesPanel" Orientation="Vertical">
+                                    <TextBlock Text="Complete a lap to see times" Style="{StaticResource DataTextStyle}" 
+                                               Opacity="0.6" HorizontalAlignment="Center" Margin="0,20"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Grid>
         </ScrollViewer>
         
