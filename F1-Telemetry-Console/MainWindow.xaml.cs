@@ -47,8 +47,17 @@ namespace F1_Telemetry_Console
         private Point _lastPanPoint;
         private bool _isPanning = false;
         
+        // Maximized map functionality
+        private bool _isMapMaximized = false;
+        private ScaleTransform? _maximizedScaleTransform;
+        private TranslateTransform? _maximizedTranslateTransform;
+        private TransformGroup? _maximizedTransformGroup;
+        private double _maximizedZoomFactor = 1.0;
+        private Point _maximizedLastPanPoint;
+        private bool _maximizedIsPanning = false;
+        
         // Lap-based color cycling
-        private byte _currentLapNumber = 1;
+        private byte _currentLapNumber = 0; // Start at 0 - no lap begun yet
         private readonly Dictionary<byte, uint> _completedLapTimes = new Dictionary<byte, uint>();
         
         // Lap restart detection
@@ -56,6 +65,8 @@ namespace F1_Telemetry_Console
         private bool _isLapRestarting = false;
         private const float LapRestartTeleportThreshold = 1000f; // Minimum distance jump to detect restart teleport (in meters)
         private const float LapStartThreshold = 100f; // Distance threshold to consider lap as "started" (in meters)
+        private byte _lastLapInvalid = 0; // Track lap invalidation state
+        private Point _lastWorldPosition = new Point(0, 0); // Track world position for teleport detection
         
         private readonly Color[] _lapColors = new Color[]
         {
@@ -104,7 +115,7 @@ namespace F1_Telemetry_Console
 
         private void InitializeCanvasTransforms()
         {
-            // Create transforms for zoom and pan
+            // Create transforms for zoom and pan - normal minimap
             _scaleTransform = new ScaleTransform(1.0, 1.0);
             _translateTransform = new TranslateTransform(0, 0);
             _transformGroup = new TransformGroup();
@@ -121,6 +132,24 @@ namespace F1_Telemetry_Console
             MiniTrackCanvas.MouseLeftButtonUp += MiniTrackCanvas_MouseLeftButtonUp;
             MiniTrackCanvas.MouseMove += MiniTrackCanvas_MouseMove;
             MiniTrackCanvas.MouseLeave += MiniTrackCanvas_MouseLeave;
+            
+            // Create transforms for maximized map
+            _maximizedScaleTransform = new ScaleTransform(1.0, 1.0);
+            _maximizedTranslateTransform = new TranslateTransform(0, 0);
+            _maximizedTransformGroup = new TransformGroup();
+            _maximizedTransformGroup.Children.Add(_maximizedScaleTransform);
+            _maximizedTransformGroup.Children.Add(_maximizedTranslateTransform);
+
+            // Apply transforms to the maximized canvas
+            MaximizedMiniTrackCanvas.RenderTransform = _maximizedTransformGroup;
+            MaximizedMiniTrackCanvas.RenderTransformOrigin = new Point(0.5, 0.5);
+
+            // Add event handlers for maximized canvas
+            MaximizedMiniTrackCanvas.MouseWheel += MaximizedMiniTrackCanvas_MouseWheel;
+            MaximizedMiniTrackCanvas.MouseLeftButtonDown += MaximizedMiniTrackCanvas_MouseLeftButtonDown;
+            MaximizedMiniTrackCanvas.MouseLeftButtonUp += MaximizedMiniTrackCanvas_MouseLeftButtonUp;
+            MaximizedMiniTrackCanvas.MouseMove += MaximizedMiniTrackCanvas_MouseMove;
+            MaximizedMiniTrackCanvas.MouseLeave += MaximizedMiniTrackCanvas_MouseLeave;
         }
 
         private async void StartStopButton_Click(object sender, RoutedEventArgs e)
@@ -637,14 +666,22 @@ namespace F1_Telemetry_Console
                     if (newLapNumber != _currentLapNumber && newLapNumber > 0)
                     {
                         // Store the completed lap time (use the lastLapTime which is for the lap we just finished)
-                        // But only if we're not in the middle of a lap restart
+                        // But only if we're not in the middle of a lap restart and we had a previous lap
                         if (lapData.m_lastLapTimeInMS > 0 && _currentLapNumber > 0 && !_isLapRestarting)
                         {
                             _completedLapTimes[_currentLapNumber] = lapData.m_lastLapTimeInMS;
                             UpdateLapTimesDisplay();
                         }
                         
+                        // Update current lap number
                         _currentLapNumber = newLapNumber;
+                        
+                        // If this is the first lap (transitioning from 0), show status
+                        if (_currentLapNumber == 1)
+                        {
+                            StatusText.Text = "Lap 1 started - beginning trail recording";
+                        }
+                        
                         // No need to update existing trails - they keep their colors
                     }
                 }
@@ -670,6 +707,12 @@ namespace F1_Telemetry_Console
                     3 => Brushes.Red,
                     _ => Brushes.Yellow
                 };
+                
+                // Update maximized car position if maximized view is open
+                if (_isMapMaximized)
+                {
+                    UpdateMaximizedCarPosition();
+                }
             }
             catch (Exception ex)
             {
@@ -684,18 +727,76 @@ namespace F1_Telemetry_Console
             {
                 var currentTime = DateTime.Now;
                 
+                // Check for large world position jumps (immediate teleport detection)
+                if (_currentMotion.HasValue && _lastWorldPosition.X != 0 && _lastWorldPosition.Y != 0)
+                {
+                    var motion = _currentMotion.Value;
+                    var currentWorldPos = new Point(motion.m_worldPositionX, motion.m_worldPositionZ);
+                    var worldDistanceJump = Math.Sqrt(Math.Pow(currentWorldPos.X - _lastWorldPosition.X, 2) + 
+                                                    Math.Pow(currentWorldPos.Y - _lastWorldPosition.Y, 2));
+                    
+                    // Detect massive world position jump (teleportation)
+                    if (!_isLapRestarting && worldDistanceJump > 500f) // 500m world distance jump
+                    {
+                        _isLapRestarting = true;
+                        StatusText.Text = $"Teleport detected (world jump: {worldDistanceJump:F0}m) - pausing trail recording";
+                        
+                        // Clear current lap trail immediately
+                        if (_lapTrails.ContainsKey(_currentLapNumber))
+                        {
+                            MiniTrackCanvas.Children.Remove(_lapTrails[_currentLapNumber]);
+                            _lapTrails.Remove(_currentLapNumber);
+                        }
+                        
+                        // Remove position history for current lap
+                        for (int i = _positionLaps.Count - 1; i >= 0; i--)
+                        {
+                            if (_positionLaps[i] == _currentLapNumber)
+                            {
+                                _positionHistory.RemoveAt(i);
+                                _positionTimes.RemoveAt(i);
+                                _positionLaps.RemoveAt(i);
+                            }
+                        }
+                    }
+                    
+                    _lastWorldPosition = currentWorldPos;
+                }
+                else if (_currentMotion.HasValue)
+                {
+                    var motion = _currentMotion.Value;
+                    _lastWorldPosition = new Point(motion.m_worldPositionX, motion.m_worldPositionZ);
+                }
+                
                 // Check for lap restart teleport using lap distance
                 if (_currentLapData.HasValue)
                 {
                     var lapData = _currentLapData.Value;
                     var currentLapDistance = lapData.m_lapDistance;
+                    var trackLength = _currentSession?.m_trackLength ?? 5000;
                     
-                    // Detect sudden jump in lap distance (indicating restart lap teleport)
+                    // More aggressive restart detection - check for multiple conditions:
+                    // 1. Large forward jump (teleport to end of track)
+                    // 2. Large backward jump (teleport to start of track) 
+                    // 3. Jump to high percentage of track (near finish line)
+                    var distanceDelta = Math.Abs(currentLapDistance - _lastLapDistance);
+                    var isLargeJump = distanceDelta > LapRestartTeleportThreshold;
+                    var isNearFinishLine = currentLapDistance > (trackLength * 0.8f); // 80% of track length
+                    var isResetToStart = _lastLapDistance > (trackLength * 0.5f) && currentLapDistance < LapStartThreshold;
+                    
+                    // Additional detection: Lap invalidation can indicate restart
+                    var currentLapInvalid = lapData.m_currentLapInvalid;
+                    var lapInvalidationToggle = _lastLapInvalid != currentLapInvalid && currentLapInvalid == 1;
+                    
+                    // Detect restart teleportation using multiple indicators
                     if (!_isLapRestarting && _lastLapDistance > 0 && 
-                        (currentLapDistance - _lastLapDistance) > LapRestartTeleportThreshold)
+                        (isLargeJump || (isNearFinishLine && _lastLapDistance < (trackLength * 0.5f)) || isResetToStart || lapInvalidationToggle))
                     {
                         _isLapRestarting = true;
-                        StatusText.Text = "Lap restart detected - pausing trail recording";
+                        var reason = isLargeJump ? $"distance jump: {distanceDelta:F0}m" : 
+                                   isNearFinishLine ? "teleport to finish line" :
+                                   isResetToStart ? "reset to start" : "lap invalidation";
+                        StatusText.Text = $"Lap restart detected ({reason}) - pausing trail recording";
                         
                         // Remove the current lap's trail since it's being restarted
                         if (_lapTrails.ContainsKey(_currentLapNumber))
@@ -716,6 +817,8 @@ namespace F1_Telemetry_Console
                         }
                     }
                     
+                    _lastLapInvalid = currentLapInvalid;
+                    
                     // Detect when lap properly starts (low lap distance after restart)
                     if (_isLapRestarting && currentLapDistance < LapStartThreshold)
                     {
@@ -726,8 +829,8 @@ namespace F1_Telemetry_Console
                     _lastLapDistance = currentLapDistance;
                 }
                 
-                // Don't record positions during lap restart teleportation
-                if (_isLapRestarting)
+                // Don't record positions during lap restart teleportation or before first lap starts
+                if (_isLapRestarting || _currentLapNumber == 0)
                 {
                     return;
                 }
@@ -792,7 +895,7 @@ namespace F1_Telemetry_Console
         {
             try
             {
-                if (!_showHistory) return;
+                if (!_showHistory || lapNumber == 0) return; // Don't create trail for lap 0
                 
                 // Get all points for this specific lap
                 var lapPoints = new List<Point>();
@@ -831,6 +934,12 @@ namespace F1_Telemetry_Console
                     // Add the trail behind the car dot (so car appears on top)
                     MiniTrackCanvas.Children.Insert(Math.Max(0, MiniTrackCanvas.Children.Count - 1), lapTrail);
                     _lapTrails[lapNumber] = lapTrail;
+                    
+                    // Update maximized canvas if it's open
+                    if (_isMapMaximized)
+                    {
+                        SyncMaximizedCanvas();
+                    }
                 }
             }
             catch (Exception ex)
@@ -1058,12 +1167,14 @@ namespace F1_Telemetry_Console
             _positionHistory.Clear();
             _positionTimes.Clear();
             _positionLaps.Clear();
-            _currentLapNumber = 1; // Reset lap counter
+            _currentLapNumber = 0; // Reset to 0 - wait for first lap to begin
             _completedLapTimes.Clear();
             
             // Reset lap restart detection
             _lastLapDistance = 0f;
             _isLapRestarting = false;
+            _lastLapInvalid = 0;
+            _lastWorldPosition = new Point(0, 0);
             
             // Remove all lap trails from canvas
             foreach (var trail in _lapTrails.Values)
@@ -1071,6 +1182,13 @@ namespace F1_Telemetry_Console
                 MiniTrackCanvas.Children.Remove(trail);
             }
             _lapTrails.Clear();
+            
+            // Clear maximized canvas if it's open
+            if (_isMapMaximized)
+            {
+                MaximizedMiniTrackCanvas.Children.Clear();
+                MaximizedMiniTrackCanvas.Children.Add(MaximizedCarDot);
+            }
             
             // Update lap times display
             UpdateLapTimesDisplay();
@@ -1267,6 +1385,277 @@ namespace F1_Telemetry_Console
             catch (Exception ex)
             {
                 StatusText.Text = $"Pan Leave Error: {ex.Message}";
+            }
+        }
+
+        private void MaximizeMapButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _isMapMaximized = !_isMapMaximized;
+                
+                if (_isMapMaximized)
+                {
+                    // Show maximized popup
+                    MaximizedMapPopup.IsOpen = true;
+                    MaximizeMapButton.Content = "⬜";
+                    MaximizeMapButton.ToolTip = "Restore Mini Map";
+                    
+                    // Use a timer to ensure canvas dimensions are available before syncing
+                    var timer = new System.Windows.Threading.DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromMilliseconds(100)
+                    };
+                    timer.Tick += (s, args) =>
+                    {
+                        timer.Stop();
+                        SyncMaximizedCanvas();
+                    };
+                    timer.Start();
+                    
+                    StatusText.Text = "Mini map maximized (fullscreen) - Close with X, ESC, or click maximize button again";
+                }
+                else
+                {
+                    // Hide maximized popup
+                    MaximizedMapPopup.IsOpen = false;
+                    MaximizeMapButton.Content = "▢";
+                    MaximizeMapButton.ToolTip = "Maximize Mini Map";
+                    StatusText.Text = "Mini map restored to normal size";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Maximize Map Error: {ex.Message}";
+            }
+        }
+        
+        private void MaximizedShowHistoryCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Sync with main checkbox
+            var isChecked = MaximizedShowHistoryCheckBox.IsChecked ?? false;
+            ShowHistoryCheckBox.IsChecked = isChecked;
+            ShowHistoryCheckBox_CheckedChanged(sender, e);
+        }
+        
+        private void MaximizedMapPopup_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                MaximizeMapButton_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+            }
+        }
+        
+        private void SyncMaximizedCanvas()
+        {
+            try
+            {
+                if (!_isMapMaximized) return;
+                
+                // Get actual canvas dimensions
+                var maxCanvasWidth = MaximizedMiniTrackCanvas.ActualWidth > 0 ? MaximizedMiniTrackCanvas.ActualWidth : SystemParameters.PrimaryScreenWidth - 40;
+                var maxCanvasHeight = MaximizedMiniTrackCanvas.ActualHeight > 0 ? MaximizedMiniTrackCanvas.ActualHeight : SystemParameters.PrimaryScreenHeight - 120;
+                
+                // Use fallback dimensions if ActualWidth/Height not available yet
+                if (maxCanvasWidth <= 0) maxCanvasWidth = SystemParameters.PrimaryScreenWidth - 40;
+                if (maxCanvasHeight <= 0) maxCanvasHeight = SystemParameters.PrimaryScreenHeight - 120;
+                
+                // Clear maximized canvas
+                MaximizedMiniTrackCanvas.Children.Clear();
+                
+                // Get normal canvas dimensions
+                var normalCanvasWidth = MiniTrackCanvas.ActualWidth > 0 ? MiniTrackCanvas.ActualWidth : 200;
+                var normalCanvasHeight = MiniTrackCanvas.ActualHeight > 0 ? MiniTrackCanvas.ActualHeight : 240;
+                
+                // Copy all lap trails to maximized canvas
+                foreach (var trail in _lapTrails.Values)
+                {
+                    var points = new PointCollection();
+                    foreach (Point point in trail.Points)
+                    {
+                        // Scale points for larger canvas
+                        var scaledX = point.X * (maxCanvasWidth / normalCanvasWidth);
+                        var scaledY = point.Y * (maxCanvasHeight / normalCanvasHeight);
+                        points.Add(new Point(scaledX, scaledY));
+                    }
+                    
+                    var maximizedTrail = new Polyline
+                    {
+                        Stroke = trail.Stroke,
+                        StrokeThickness = Math.Max(2.0, trail.StrokeThickness * 3), // Much thicker lines for visibility
+                        Points = points
+                    };
+                    
+                    MaximizedMiniTrackCanvas.Children.Add(maximizedTrail);
+                }
+                
+                // Add maximized car dot at the end so it appears on top
+                MaximizedMiniTrackCanvas.Children.Add(MaximizedCarDot);
+                
+                // Update maximized car position using the same coordinate system
+                UpdateMaximizedCarPosition();
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Sync Maximized Canvas Error: {ex.Message}";
+            }
+        }
+        
+        private void UpdateMaximizedCarPosition()
+        {
+            try
+            {
+                if (!_isMapMaximized || !_currentMotion.HasValue) return;
+                
+                // Get actual canvas dimensions for maximized view
+                var maxCanvasWidth = MaximizedMiniTrackCanvas.ActualWidth > 0 ? MaximizedMiniTrackCanvas.ActualWidth : SystemParameters.PrimaryScreenWidth - 40;
+                var maxCanvasHeight = MaximizedMiniTrackCanvas.ActualHeight > 0 ? MaximizedMiniTrackCanvas.ActualHeight : SystemParameters.PrimaryScreenHeight - 120;
+                
+                if (maxCanvasWidth <= 0) maxCanvasWidth = SystemParameters.PrimaryScreenWidth - 40;
+                if (maxCanvasHeight <= 0) maxCanvasHeight = SystemParameters.PrimaryScreenHeight - 120;
+                
+                // Map world position to maximized canvas coordinates
+                var motion = _currentMotion.Value;
+                var currentPosition = MapWorldPositionToCanvas(motion.m_worldPositionX, motion.m_worldPositionZ, maxCanvasWidth, maxCanvasHeight);
+                
+                // Center the car dot (16x16 pixels)
+                Canvas.SetLeft(MaximizedCarDot, currentPosition.X - 8);
+                Canvas.SetTop(MaximizedCarDot, currentPosition.Y - 8);
+                
+                // Update car dot color based on current sector
+                if (_currentLapData.HasValue)
+                {
+                    var currentSector = _currentLapData.Value.m_sector + 1;
+                    MaximizedCarDot.Fill = currentSector switch
+                    {
+                        1 => Brushes.LimeGreen,
+                        2 => Brushes.Orange,
+                        3 => Brushes.Red,
+                        _ => Brushes.Yellow
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Update Maximized Car Position Error: {ex.Message}";
+            }
+        }
+
+        // Mouse event handlers for maximized canvas
+        private void MaximizedMiniTrackCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            try
+            {
+                var canvas = sender as Canvas;
+                if (canvas == null || _maximizedScaleTransform == null || _maximizedTranslateTransform == null) return;
+
+                var delta = e.Delta > 0 ? 1.2 : 0.8;
+                var newZoom = _maximizedZoomFactor * delta;
+
+                // Limit zoom range
+                if (newZoom < 0.5) newZoom = 0.5;
+                if (newZoom > 50.0) newZoom = 50.0;
+
+                // Get mouse position relative to canvas
+                var mousePos = e.GetPosition(canvas);
+                var canvasCenter = new Point(canvas.ActualWidth / 2, canvas.ActualHeight / 2);
+                
+                // Calculate adjustment to keep zoom centered on mouse position
+                var deltaZoom = newZoom / _maximizedZoomFactor;
+                var offsetX = (mousePos.X - canvasCenter.X) * (deltaZoom - 1);
+                var offsetY = (mousePos.Y - canvasCenter.Y) * (deltaZoom - 1);
+                
+                // Apply zoom and adjust translation
+                _maximizedZoomFactor = newZoom;
+                _maximizedScaleTransform.ScaleX = _maximizedZoomFactor;
+                _maximizedScaleTransform.ScaleY = _maximizedZoomFactor;
+                _maximizedTranslateTransform.X -= offsetX;
+                _maximizedTranslateTransform.Y -= offsetY;
+
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Maximized Zoom Error: {ex.Message}";
+            }
+        }
+
+        private void MaximizedMiniTrackCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                var canvas = sender as Canvas;
+                if (canvas == null) return;
+
+                _maximizedIsPanning = true;
+                _maximizedLastPanPoint = e.GetPosition(canvas);
+                canvas.CaptureMouse();
+                canvas.Cursor = System.Windows.Input.Cursors.Hand;
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Maximized Pan Start Error: {ex.Message}";
+            }
+        }
+
+        private void MaximizedMiniTrackCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                var canvas = sender as Canvas;
+                if (canvas == null) return;
+
+                _maximizedIsPanning = false;
+                canvas.ReleaseMouseCapture();
+                canvas.Cursor = System.Windows.Input.Cursors.Arrow;
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Maximized Pan End Error: {ex.Message}";
+            }
+        }
+
+        private void MaximizedMiniTrackCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            try
+            {
+                if (!_maximizedIsPanning || _maximizedTranslateTransform == null) return;
+
+                var canvas = sender as Canvas;
+                if (canvas == null) return;
+
+                var currentPoint = e.GetPosition(canvas);
+                var deltaX = currentPoint.X - _maximizedLastPanPoint.X;
+                var deltaY = currentPoint.Y - _maximizedLastPanPoint.Y;
+
+                // Increase panning sensitivity for ultra-responsive movement
+                var panSensitivity = 5.0;
+                _maximizedTranslateTransform.X += deltaX * panSensitivity;
+                _maximizedTranslateTransform.Y += deltaY * panSensitivity;
+
+                _maximizedLastPanPoint = currentPoint;
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Maximized Pan Move Error: {ex.Message}";
+            }
+        }
+
+        private void MaximizedMiniTrackCanvas_MouseLeave(object sender, MouseEventArgs e)
+        {
+            try
+            {
+                var canvas = sender as Canvas;
+                if (canvas == null) return;
+
+                _maximizedIsPanning = false;
+                canvas.ReleaseMouseCapture();
+                canvas.Cursor = System.Windows.Input.Cursors.Arrow;
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Maximized Pan Leave Error: {ex.Message}";
             }
         }
 

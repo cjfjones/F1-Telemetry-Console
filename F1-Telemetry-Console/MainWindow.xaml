@@ -273,7 +273,11 @@
                                     <Button Name="ResetViewButton" Content="Reset" Click="ResetViewButton_Click" 
                                             FontSize="10" Padding="3,1" Background="{StaticResource F1DarkBrush}" 
                                             Foreground="{StaticResource F1SilverBrush}" BorderThickness="1" 
-                                            BorderBrush="{StaticResource F1SilverBrush}"/>
+                                            BorderBrush="{StaticResource F1SilverBrush}" Margin="0,0,5,0"/>
+                                    <Button Name="MaximizeMapButton" Content="▢" Click="MaximizeMapButton_Click" 
+                                            FontSize="10" Padding="3,1" Background="{StaticResource F1DarkBrush}" 
+                                            Foreground="{StaticResource F1SilverBrush}" BorderThickness="1" 
+                                            BorderBrush="{StaticResource F1SilverBrush}" ToolTip="Maximize/Restore Mini Map"/>
                                 </StackPanel>
                             </Grid>
                             <Border Height="240" Background="Black" Margin="0,5" ClipToBounds="True">
@@ -483,5 +487,56 @@
                           Style="{StaticResource DataTextStyle}" VerticalAlignment="Center" Margin="10,0"/>
             </Grid>
         </Border>
+        <!-- Maximized Mini Map Popup -->
+        <Popup Grid.RowSpan="3" Name="MaximizedMapPopup" Placement="Center" AllowsTransparency="True" PopupAnimation="Fade" 
+               StaysOpen="True" IsOpen="False" KeyDown="MaximizedMapPopup_KeyDown">
+            <Border Background="{StaticResource F1DarkBrush}" BorderBrush="{StaticResource F1AccentBrush}" 
+                    BorderThickness="2" CornerRadius="0" 
+                    Width="{Binding Source={x:Static SystemParameters.PrimaryScreenWidth}}"
+                    Height="{Binding Source={x:Static SystemParameters.PrimaryScreenHeight}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Header with controls -->
+                    <Border Grid.Row="0" Background="{StaticResource F1RedBrush}" CornerRadius="3,3,0,0" Padding="10,5">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Column="0" Text="MINI MAP - MAXIMIZED" Style="{StaticResource HeaderTextStyle}" 
+                                       FontSize="14" VerticalAlignment="Center"/>
+                            
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <CheckBox Name="MaximizedShowHistoryCheckBox" Content="Trail" Foreground="White" 
+                                          IsChecked="True" Checked="MaximizedShowHistoryCheckBox_CheckedChanged" 
+                                          Unchecked="MaximizedShowHistoryCheckBox_CheckedChanged" FontSize="10" Margin="0,0,10,0"/>
+                                <Button Name="MaximizedClearHistoryButton" Content="Clear" Click="ClearHistoryButton_Click" 
+                                        FontSize="10" Padding="5,2" Background="{StaticResource F1DarkBrush}" 
+                                        Foreground="White" BorderThickness="1" BorderBrush="White" Margin="0,0,10,0"/>
+                                <Button Name="MaximizedResetViewButton" Content="Reset" Click="ResetViewButton_Click" 
+                                        FontSize="10" Padding="5,2" Background="{StaticResource F1DarkBrush}" 
+                                        Foreground="White" BorderThickness="1" BorderBrush="White" Margin="0,0,10,0"/>
+                                <Button Name="CloseMaximizedMapButton" Content="✕" Click="MaximizeMapButton_Click" 
+                                        FontSize="12" Padding="5,2" Background="DarkRed" 
+                                        Foreground="White" BorderThickness="1" BorderBrush="White" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Maximized Canvas -->
+                    <Border Grid.Row="1" Background="Black" ClipToBounds="True" Margin="10">
+                        <Canvas Name="MaximizedMiniTrackCanvas" Background="Transparent">
+                            <!-- Car position dot for maximized view -->
+                            <Ellipse Name="MaximizedCarDot" Fill="Yellow" Width="16" Height="16" Canvas.Left="10" Canvas.Top="10"/>
+                        </Canvas>
+                    </Border>
+                </Grid>
+            </Border>
+        </Popup>
     </Grid>
 </Window> 
