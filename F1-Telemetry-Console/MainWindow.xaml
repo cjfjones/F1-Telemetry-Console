@@ -1,0 +1,446 @@
+<Window x:Class="F1_Telemetry_Console.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+
+        mc:Ignorable="d"
+        Title="F1 2024 Telemetry Dashboard" 
+        Height="900" 
+        Width="1400"
+        Background="#0F0F0F"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="30"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{StaticResource F1RedBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock Text="F1 2024 TELEMETRY" FontSize="28" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Name="SessionTimeText" Text="00:00.000" FontSize="20" Foreground="White" Margin="30,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <TextBlock Grid.Column="1" Name="ConnectionStatusText" Text="Connecting..." FontSize="14" Foreground="White" VerticalAlignment="Center" Margin="10"/>
+                
+                <Button Grid.Column="2" Name="StartStopButton" Content="Start" Click="StartStopButton_Click" Width="80" Height="30" Margin="10"/>
+            </Grid>
+        </Border>
+        
+        <!-- Main Dashboard -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <Grid Margin="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Top Row - Speed, RPM, Gear -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Speed Gauge -->
+                    <Border Grid.Column="0" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="SPEED" Style="{StaticResource HeaderTextStyle}"/>
+                            <TextBlock Name="SpeedText" Text="0" Style="{StaticResource LargeDataStyle}"/>
+                            <TextBlock Text="km/h" Foreground="{StaticResource F1SilverBrush}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- RPM Gauge -->
+                    <Border Grid.Column="1" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="RPM" Style="{StaticResource HeaderTextStyle}"/>
+                            <TextBlock Name="RPMText" Text="0" Style="{StaticResource LargeDataStyle}"/>
+                            <ProgressBar Name="RPMProgress" Height="10" Margin="0,5,0,0" Background="DarkGray" Foreground="{StaticResource F1AccentBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Gear Display -->
+                    <Border Grid.Column="2" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="GEAR" Style="{StaticResource HeaderTextStyle}"/>
+                            <TextBlock Name="GearText" Text="N" Style="{StaticResource LargeDataStyle}" FontSize="36"/>
+                            <TextBlock Name="SuggestedGearText" Text="" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- DRS & ERS -->
+                    <Border Grid.Column="3" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="SYSTEMS" Style="{StaticResource HeaderTextStyle}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5">
+                                <Border Name="DRSIndicator" Background="Red" CornerRadius="5" Padding="10,5" Margin="5">
+                                    <TextBlock Text="DRS" Foreground="White" FontWeight="Bold"/>
+                                </Border>
+                                <Border Name="ERSIndicator" Background="Orange" CornerRadius="5" Padding="10,5" Margin="5">
+                                    <TextBlock Text="ERS" Foreground="White" FontWeight="Bold"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Name="ERSEnergyText" Text="0 kJ" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                
+                <!-- Second Row - Inputs and G-Forces -->
+                <Grid Grid.Row="1" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Driver Inputs -->
+                    <Border Grid.Column="0" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="DRIVER INPUTS" Style="{StaticResource HeaderTextStyle}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Throttle" Style="{StaticResource DataTextStyle}"/>
+                                    <ProgressBar Name="ThrottleBar" Height="80" Orientation="Vertical" Background="DarkGray" 
+                                               Foreground="LimeGreen" VerticalAlignment="Bottom"/>
+                                    <TextBlock Name="ThrottleText" Text="0%" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Brake" Style="{StaticResource DataTextStyle}"/>
+                                    <ProgressBar Name="BrakeBar" Height="80" Orientation="Vertical" Background="DarkGray" 
+                                               Foreground="Red" VerticalAlignment="Bottom"/>
+                                    <TextBlock Name="BrakeText" Text="0%" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Steering" Style="{StaticResource DataTextStyle}"/>
+                                    <TextBlock Name="SteeringText" Text="0°" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center" Margin="0,35,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- G-Forces -->
+                    <Border Grid.Column="1" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="G-FORCES" Style="{StaticResource HeaderTextStyle}"/>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Lateral:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Name="LateralGText" Text="0.00G" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Longitudinal:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Name="LongitudinalGText" Text="0.00G" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Vertical:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Name="VerticalGText" Text="0.00G" Style="{StaticResource DataTextStyle}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Position & Lap Info -->
+                    <Border Grid.Column="2" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="LAP INFO" Style="{StaticResource HeaderTextStyle}"/>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Position:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Name="PositionText" Text="1" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Lap:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Name="LapText" Text="1/50" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Current:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Name="CurrentLapTimeText" Text="01:30.456" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Last:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Name="LastLapTimeText" Text="01:29.123" Style="{StaticResource DataTextStyle}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Track Position Widget -->
+                    <Border Grid.Column="3" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="TRACK POSITION" Style="{StaticResource HeaderTextStyle}"/>
+                            
+                            <!-- Track Progress Bar -->
+                            <Grid Margin="0,10,0,15">
+                                <Border Background="DarkGray" Height="20" CornerRadius="10">
+                                    <Grid>
+                                        <!-- Sector markers -->
+                                        <Border Name="Sector1Marker" Background="{StaticResource F1AccentBrush}" Width="2" HorizontalAlignment="Left" Margin="33,0,0,0"/>
+                                        <Border Name="Sector2Marker" Background="{StaticResource F1AccentBrush}" Width="2" HorizontalAlignment="Left" Margin="66,0,0,0"/>
+                                        
+                                        <!-- Progress bar -->
+                                        <Border Name="TrackProgressBar" Background="{StaticResource F1RedBrush}" Height="20" CornerRadius="10" HorizontalAlignment="Left" Width="0"/>
+                                        
+                                        <!-- Car position indicator -->
+                                        <Ellipse Name="CarPositionIndicator" Fill="Yellow" Width="16" Height="16" HorizontalAlignment="Left" Margin="0,2,0,2"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                            
+                            <!-- Track info -->
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Sector:" Style="{StaticResource DataTextStyle}"/>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                    <Border Name="CurrentSectorIndicator" Background="{StaticResource F1AccentBrush}" CornerRadius="3" Padding="5,2" Margin="0,0,5,0">
+                                        <TextBlock Name="CurrentSectorText" Text="1" Foreground="Black" FontWeight="Bold" FontSize="12"/>
+                                    </Border>
+                                    <TextBlock Text="of 3" Style="{StaticResource DataTextStyle}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Distance:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Name="LapDistanceText" Text="1.234 km" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Progress:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Name="LapProgressText" Text="25.5%" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Remaining:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Name="DistanceRemainingText" Text="3.657 km" Style="{StaticResource DataTextStyle}"/>
+                            </Grid>
+                            
+                            <!-- Mini track map (simplified) -->
+                            <Separator Margin="0,10" Background="{StaticResource F1SilverBrush}"/>
+                            <TextBlock Text="MINI MAP" Style="{StaticResource HeaderTextStyle}" FontSize="12"/>
+                            <Canvas Name="MiniTrackCanvas" Height="80" Background="Black" Margin="0,5">
+                                <!-- Simple track outline - will be updated based on track -->
+                                <Path Name="TrackOutline" Stroke="{StaticResource F1SilverBrush}" StrokeThickness="2" Fill="Transparent"/>
+                                <!-- Car position dot -->
+                                <Ellipse Name="CarDot" Fill="Yellow" Width="6" Height="6" Canvas.Left="10" Canvas.Top="10"/>
+                            </Canvas>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                
+                <!-- Third Row - Temperatures and Tyres -->
+                <Grid Grid.Row="2" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Tyre Temperatures -->
+                    <Border Grid.Column="0" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="TYRE TEMPERATURES" Style="{StaticResource HeaderTextStyle}"/>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition Height="20"/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- Front Left -->
+                                <Border Grid.Row="0" Grid.Column="0" Background="DarkSlateGray" CornerRadius="5" Margin="5" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="FL" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyreTempFLText" Text="85°C" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyrePressureFLText" Text="23.5 PSI" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center" FontSize="10"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Front Right -->
+                                <Border Grid.Row="0" Grid.Column="1" Background="DarkSlateGray" CornerRadius="5" Margin="5" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="FR" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyreTempFRText" Text="85°C" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyrePressureFRText" Text="23.5 PSI" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center" FontSize="10"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Tyre Compound Info -->
+                                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Name="TyreCompoundText" Text="C3 Medium" Style="{StaticResource DataTextStyle}"/>
+                                    <TextBlock Name="TyreAgeText" Text="(5 laps)" Style="{StaticResource DataTextStyle}" Margin="10,0,0,0"/>
+                                </StackPanel>
+                                
+                                <!-- Rear Left -->
+                                <Border Grid.Row="2" Grid.Column="0" Background="DarkSlateGray" CornerRadius="5" Margin="5" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="RL" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyreTempRLText" Text="85°C" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyrePressureRLText" Text="23.5 PSI" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center" FontSize="10"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- Rear Right -->
+                                <Border Grid.Row="2" Grid.Column="1" Background="DarkSlateGray" CornerRadius="5" Margin="5" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="RR" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyreTempRRText" Text="85°C" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="TyrePressureRRText" Text="23.5 PSI" Style="{StaticResource DataTextStyle}" HorizontalAlignment="Center" FontSize="10"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Engine & Brake Temperatures -->
+                    <Border Grid.Column="1" Style="{StaticResource GaugeStyle}">
+                        <StackPanel>
+                            <TextBlock Text="TEMPERATURES" Style="{StaticResource HeaderTextStyle}"/>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Engine:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Name="EngineTemperatureText" Text="110°C" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Brake FL/FR:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Name="BrakeTempFrontText" Text="450°C / 445°C" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Brake RL/RR:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Name="BrakeTempRearText" Text="420°C / 425°C" Style="{StaticResource DataTextStyle}"/>
+                            </Grid>
+                            
+                            <!-- Fuel Info -->
+                            <Separator Margin="0,10" Background="{StaticResource F1SilverBrush}"/>
+                            <TextBlock Text="FUEL" Style="{StaticResource HeaderTextStyle}"/>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Level:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Name="FuelLevelText" Text="45.2L" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Remaining:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Name="FuelRemainingText" Text="12.5 laps" Style="{StaticResource DataTextStyle}"/>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Mix:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Name="FuelMixText" Text="Standard" Style="{StaticResource DataTextStyle}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                
+                <!-- Fourth Row - Session Info -->
+                <Border Grid.Row="3" Style="{StaticResource GaugeStyle}">
+                    <StackPanel>
+                        <TextBlock Text="SESSION INFO" Style="{StaticResource HeaderTextStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Track:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Name="TrackNameText" Text="Silverstone" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                <TextBlock Name="TrackLengthText" Text="5.891 km" Style="{StaticResource DataTextStyle}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Weather:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Name="WeatherText" Text="Clear" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                <TextBlock Name="TemperatureText" Text="Air: 22°C Track: 35°C" Style="{StaticResource DataTextStyle}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Session:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Name="SessionTypeText" Text="Practice 1" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                <TextBlock Name="SessionTimeLeftText" Text="45:23 remaining" Style="{StaticResource DataTextStyle}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="Safety Car:" Style="{StaticResource DataTextStyle}"/>
+                                <TextBlock Name="SafetyCarText" Text="No Safety Car" Style="{StaticResource DataTextStyle}" FontWeight="Bold"/>
+                                <TextBlock Name="FlagsText" Text="Green Flag" Style="{StaticResource DataTextStyle}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </ScrollViewer>
+        
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="{StaticResource F1DarkBrush}" BorderBrush="{StaticResource F1SilverBrush}" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Grid.Column="0" Name="StatusText" Text="Ready - Waiting for F1 2024 telemetry data..." 
+                          Style="{StaticResource DataTextStyle}" VerticalAlignment="Center" Margin="10,0"/>
+                
+                <TextBlock Grid.Column="1" Name="PacketCountText" Text="Packets: 0" 
+                          Style="{StaticResource DataTextStyle}" VerticalAlignment="Center" Margin="10,0"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window> 
